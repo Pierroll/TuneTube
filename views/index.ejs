@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TuneTube</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <style>
+      body {
+        background-color: #181818;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .container {
+        text-align: center;
+        background-color: #282828;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+      }
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+      #message {
+        margin-top: 20px;
+      }
+      #progress-container {
+        margin-top: 20px;
+        display: none;
+      }
+      #progress-bar {
+        width: 0%;
+        height: 20px;
+        background-color: #4caf50;
+        text-align: center;
+        line-height: 20px;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="mb-4">Convertidor de YouTube a MP3</h1>
+      <form id="convertForm">
+        <div class="form-group">
+          <label for="youtubeURL">URL de YouTube:</label>
+          <input
+            type="text"
+            id="youtubeURL"
+            name="youtubeURL"
+            class="form-control"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Convertir a MP3</button>
+      </form>
+      <div id="progress-container">
+        <div id="progress-bar"></div>
+      </div>
+      <div id="message" class="mt-4"></div>
+    </div>
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      document
+        .getElementById("convertForm")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+          document.getElementById("message").innerText = "";
+          document.getElementById("progress-container").style.display = "block";
+          document.getElementById("progress-bar").style.width = "0%";
+
+          const youtubeURL = document.getElementById("youtubeURL").value;
+
+          const filePath = await ipcRenderer.invoke("open-dialog");
+          if (!filePath) {
+            document.getElementById("message").innerText =
+              "La descarga fue cancelada.";
+            document.getElementById("message").style.color = "red";
+            document.getElementById("progress-container").style.display =
+              "none";
+            return;
+          }
+
+          const response = await fetch("/convert", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ youtubeURL, filePath }),
+          });
+
+          const result = await response.json();
+
+          if (!result.success) {
+            document.getElementById("message").innerText = result.message;
+            document.getElementById("message").style.color = "red";
+            document.getElementById("progress-container").style.display =
+              "none";
+          }
+        });
+
+      ipcRenderer.on("download-progress", (event, progress) => {
+        document.getElementById("progress-bar").style.width = `${progress}%`;
+      });
+
+      ipcRenderer.on("download-complete", (event, result) => {
+        document.getElementById("progress-container").style.display = "none";
+        document.getElementById("message").innerText = result.message;
+        document.getElementById("message").style.color = result.success
+          ? "green"
+          : "red";
+        if (result.success) {
+          document.getElementById("youtubeURL").value = "";
+        }
+      });
+    </script>
+  </body>
+</html>
